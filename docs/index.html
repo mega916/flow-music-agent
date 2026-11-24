@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Muzyk</title>
+<meta name="description" content="Kreator promptów do Flow Music: styl, tekst i wykluczenia gotowe do wklejenia.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Układ: jedna kolumna; dwa tryby (kreator bez AI, tryb z AI), wyniki jako bloki do skopiowania */
+:root {
+  --bg: #f1f3f7; --surface: #ffffff; --ink: #12151c; --muted: #5a6273; --line: #d7dce6;
+  --accent: #2447f5; --accent-ink: #ffffff; --signal: #ffb400; --code-bg: #eceff6; --err: #c0392b;
+  --font-display: "Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1118; --surface: #171b25; --ink: #eef1f8; --muted: #9aa3b6; --line: #2a3142;
+    --accent: #6f8bff; --accent-ink: #0b0f1d; --signal: #ffc83d; --code-bg: #0f131c; --err: #ff8a7a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.5; -webkit-text-size-adjust: 100%; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 56px; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-direction: column; gap: 6px; }
+.tag { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.tag::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--signal); }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(34px, 9vw, 52px); line-height: 1.02; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+.lead { color: var(--muted); margin: 0; max-width: 60ch; }
+.tabs { display: flex; gap: 8px; }
+.tab { flex: 1; font: inherit; font-weight: 600; cursor: pointer; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 11px 8px; }
+.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.panel[hidden] { display: none; }
+label, .lbl { font-weight: 600; font-size: 14px; }
+textarea, input[type="text"], input[type="password"], input[type="number"], select {
+  width: 100%; font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+}
+textarea { min-height: 110px; resize: vertical; }
+textarea:focus-visible, input:focus-visible, button:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 150px; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--signal); color: #1a1500; border-color: var(--signal); font-weight: 600; }
+.btn { font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 10px; padding: 13px 18px; background: var(--accent); color: var(--accent-ink); }
+.btn:disabled { opacity: .6; cursor: progress; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); padding: 8px 12px; font-size: 14px; }
+.hint { font-size: 14px; color: var(--muted); margin: 0; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.status { font-size: 14px; color: var(--muted); min-height: 1.4em; }
+.status.err { color: var(--err); }
+.variant { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.vhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.vhead h2 { font-family: var(--font-display); font-size: 22px; margin: 0; line-height: 1.15; }
+.badge { font-family: var(--font-mono); font-size: 12px; background: var(--signal); color: #1a1500; border-radius: 6px; padding: 2px 8px; font-weight: 500; }
+.block { display: flex; flex-direction: column; gap: 6px; }
+.bhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.bhead span { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 14px; line-height: 1.55; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.note { border-left: 4px solid var(--signal); padding: 4px 0 4px 12px; }
+.note small { display: block; color: var(--muted); font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+footer { color: var(--muted); font-size: 14px; display: flex; flex-direction: column; gap: 6px; }
+footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div class="tag">Agent Muzyk · prompt do Flow Music</div>
+    <h1>Pomysł wchodzi. Prompt wychodzi.</h1>
+    <p class="lead">Złóż prompt muzyczny w kilka kliknięć albo poproś AI o gotowy tekst i styl. Wynik wklejasz w generator muzyki.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Tryb">
+    <button class="tab" role="tab" id="tab-builder" aria-selected="true" aria-controls="panel-builder" type="button">Kreator</button>
+    <button class="tab" role="tab" id="tab-ai" aria-selected="false" aria-controls="panel-ai" type="button">Z AI</button>
+  </div>
+
+  <!-- KREATOR: działa bez kluczy i bez logowania -->
+  <section class="panel" id="panel-builder" role="tabpanel" aria-labelledby="tab-builder">
+    <div class="row">
+      <div class="field">
+        <label for="genre">Gatunek</label>
+        <select id="genre"></select>
+      </div>
+      <div class="field">
+        <label for="bpm">Tempo (BPM)</label>
+        <input id="bpm" type="number" min="50" max="190" value="92" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label for="vocal">Wokal</label>
+        <select id="vocal"></select>
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl" id="l-mood">Nastrój (wybierz do 2)</span>
+      <div class="chips" id="moods" role="group" aria-labelledby="l-mood"></div>
+    </div>
+    <div class="field">
+      <span class="lbl" id="l-inst">Instrumenty (wybierz do 4)</span>
+      <div class="chips" id="insts" role="group" aria-labelledby="l-inst"></div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="prod">Produkcja</label>
+        <select id="prod"></select>
+      </div>
+      <div class="field">
+        <label for="dyn">Dynamika</label>
+        <select id="dyn"></select>
+      </div>
+    </div>
+    <div class="field">
+      <span class="lbl" id="l-ex">Wykluczenia</span>
+      <div class="chips" id="excl" role="group" aria-labelledby="l-ex"></div>
+    </div>
+    <div class="field">
+      <label for="lyrics">Tekst (opcjonalnie)</label>
+      <textarea id="lyrics" placeholder="Wklej własny tekst z sekcjami [Verse 1], [Chorus]… albo kliknij „Wstaw szkielet”."></textarea>
+      <button class="btn ghost" id="skeleton" type="button" style="align-self:flex-start">Wstaw szkielet</button>
+    </div>
+    <button class="btn" id="build" type="button">Złóż prompt</button>
+  </section>
+
+  <!-- AI: własny klucz Anthropic, wywołanie prosto z przeglądarki -->
+  <section class="panel" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai" hidden>
+    <p class="hint">Ten tryb pisze za Ciebie styl i oryginalny tekst. Potrzebny jest własny klucz API z console.anthropic.com. Klucz idzie tylko do Anthropic, nie do tej strony ani na GitHub.</p>
+    <div class="field">
+      <label for="idea">Twój pomysł na utwór</label>
+      <textarea id="idea" placeholder="Np. spokojna piosenka o poranku po nocnej zmianie">Spokojna piosenka o poranku po nocnej zmianie, nostalgiczna, ale z nadzieją na koniec.</textarea>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="lang">Język tekstu</label>
+        <select id="lang">
+          <option value="polski">Polski</option>
+          <option value="angielski">Angielski</option>
+          <option value="bez tekstu (instrumental)">Bez tekstu</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="avoice">Wokal</label>
+        <select id="avoice">
+          <option value="dowolny">Dowolny</option>
+          <option value="męski">Męski</option>
+          <option value="żeński">Żeński</option>
+          <option value="duet">Duet</option>
+          <option value="bez wokalu">Bez wokalu</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="len">Długość</label>
+        <select id="len">
+          <option value="standardowy, 2–3 minuty">2–3 minuty</option>
+          <option value="krótki, 30–60 sekund">30–60 sekund</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="key">Klucz API Anthropic</label>
+      <input id="key" type="password" autocomplete="off" placeholder="sk-ant-…">
+    </div>
+    <label class="check" for="remember"><input type="checkbox" id="remember"> Zapamiętaj klucz w tej przeglądarce</label>
+    <button class="btn" id="go" type="button">Zrób prompt</button>
+  </section>
+
+  <div id="status" class="status" role="status" aria-live="polite"></div>
+  <section id="out" aria-live="polite" style="display:flex;flex-direction:column;gap:20px"></section>
+
+  <footer>
+    <span>Gotowy prompt wklej w <a href="https://flowmusic.app" rel="noopener">flowmusic.app</a>. Generatory są losowe: zwykle trzeba 2–4 podejść. Zmieniaj jedną rzecz naraz.</span>
+    <span>Kod agenta: <a href="https://github.com/mega916/flow-music-agent" rel="noopener">github.com/mega916/flow-music-agent</a></span>
+  </footer>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  var DATA = {
+    genre: [
+      ["indie folk, warm acoustic", 90], ["synth-pop, glossy", 112], ["dream pop, hazy", 96], ["alt rock, driving", 128],
+      ["lo-fi hip-hop, dusty", 78], ["boom bap, laid-back", 90], ["deep house, groovy", 122], ["dance-pop, euphoric", 126],
+      ["soft rock ballad", 74], ["singer-songwriter, intimate", 84], ["smooth jazz, late night", 88], ["cinematic orchestral", 80],
+      ["synthwave, retro", 104], ["acoustic pop", 100], ["ambient, spacious", 62], ["heavy metal, aggressive", 150]
+    ],
+    vocal: [
+      ["breathy male vocal", "Męski, miękki"], ["warm male baritone", "Męski, niski"], ["airy female vocal", "Żeński, lekki"],
+      ["powerful female vocal with belted chorus", "Żeński, mocny"], ["male and female duet", "Duet"], ["instrumental", "Bez wokalu"]
+    ],
+    mood: ["nostalgic", "hopeful", "melancholic", "euphoric", "dark", "dreamy", "tense", "playful", "romantic", "defiant", "peaceful", "triumphant"],
+    inst: ["fingerpicked acoustic guitar", "clean electric guitar", "distorted guitar", "felt piano", "warm synth pads", "analog bass synth", "upright bass", "brushed drums", "punchy drums", "808 drums", "drum machine", "cello and strings", "saxophone", "accordion"],
+    prod: [["organic analog production", "Analogowa, ciepła"], ["crisp modern production", "Nowoczesna, czysta"], ["lo-fi tape warmth", "Lo-fi, taśma"], ["wide stereo, glossy", "Szeroka, błyszcząca"], ["dry and intimate, close-mic", "Sucha, intymna"], ["live-in-room feel", "Jak na żywo"]],
+    dyn: [["quiet verses, big singalong chorus", "Cichy początek, mocny refren"], ["steady energy throughout", "Równa energia"], ["slow build into a big finish", "Powolne budowanie"], ["minimal and sparse", "Minimalistycznie"]],
+    excl: ["no autotune", "no rap", "no choir", "no heavy distortion", "no spoken intro", "no drums", "no fade-out", "no long intro"]
+  };
+
+  var STATE = { moods: [], insts: [], excl: ["no autotune", "no spoken intro"] };
+
+  function fillSelect(id, items) {
+    var s = $(id);
+    items.forEach(function (it) {
+      var o = document.createElement("option");
+      if (Array.isArray(it)) { o.value = it[0]; o.textContent = it[1] || it[0]; } else { o.value = it; o.textContent = it; }
+      s.appendChild(o);
+    });
+  }
+  (function () {
+    var g = $("genre");
+    DATA.genre.forEach(function (it, i) { var o = document.createElement("option"); o.value = it[0]; o.textContent = it[0]; o.setAttribute("data-bpm", it[1]); g.appendChild(o); });
+    g.addEventListener("change", function () { var b = g.options[g.selectedIndex].getAttribute("data-bpm"); if (b) $("bpm").value = b; });
+    fillSelect("vocal", DATA.vocal);
+    fillSelect("prod", DATA.prod);
+    fillSelect("dyn", DATA.dyn);
+    $("bpm").value = DATA.genre[0][1];
+  })();
+
+  function chips(boxId, items, key, max) {
+    var box = $(boxId);
+    items.forEach(function (t) {
+      var b = el("button", "chip", t); b.type = "button";
+      var on = STATE[key].indexOf(t) > -1;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.addEventListener("click", function () {
+        var i = STATE[key].indexOf(t);
+        if (i > -1) STATE[key].splice(i, 1);
+        else {
+          if (max && STATE[key].length >= max) { var first = STATE[key].shift(); box.querySelectorAll(".chip").forEach(function (c) { if (c.textContent === first) c.setAttribute("aria-pressed", "false"); }); }
+          STATE[key].push(t);
+        }
+        b.setAttribute("aria-pressed", STATE[key].indexOf(t) > -1 ? "true" : "false");
+      });
+      box.appendChild(b);
+    });
+  }
+  chips("moods", DATA.mood, "moods", 2);
+  chips("insts", DATA.inst, "insts", 4);
+  chips("excl", DATA.excl, "excl", 0);
+
+  var out = $("out"), statusEl = $("status");
+  function setStatus(msg, isErr) { statusEl.textContent = msg || ""; statusEl.className = "status" + (isErr ? " err" : ""); }
+
+  function copyText(text, btn) {
+    var done = function (ok) { var old = btn.textContent; btn.textContent = ok ? "Skopiowano" : "Zaznacz i skopiuj ręcznie"; setTimeout(function () { btn.textContent = old; }, 1600); };
+    try { navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); }); } catch (e) { done(false); }
+  }
+  function block(label, text) {
+    var wrap = el("div", "block"), head = el("div", "bhead");
+    head.appendChild(el("span", null, label));
+    var b = el("button", "btn ghost", "Kopiuj"); b.type = "button";
+    b.addEventListener("click", function () { copyText(text, b); });
+    head.appendChild(b); wrap.appendChild(head); wrap.appendChild(el("pre", null, text));
+    return wrap;
+  }
+  function variant(letter, v) {
+    var box = el("article", "variant"), head = el("div", "vhead");
+    head.appendChild(el("h2", null, v.nazwa || ("Wariant " + letter)));
+    if (letter) head.appendChild(el("span", "badge", "Wariant " + letter));
+    box.appendChild(head);
+    box.appendChild(block("Styl", String(v.styl || "")));
+    box.appendChild(block("Tekst", String(v.tekst || "")));
+    box.appendChild(block("Wykluczenia", String(v.wykluczenia || "")));
+    var all = "STYL:\n" + v.styl + "\n\nTEKST:\n" + v.tekst + "\n\nWYKLUCZENIA:\n" + v.wykluczenia;
+    var ab = el("button", "btn", "Kopiuj wszystko"); ab.type = "button";
+    ab.addEventListener("click", function () { copyText(all, ab); });
+    box.appendChild(ab);
+    return box;
+  }
+  function note(title, text) { var n = el("div", "note"); n.appendChild(el("small", null, title)); n.appendChild(el("span", null, text)); return n; }
+
+  var SKELETON = "[Intro]\n\n[Verse 1]\n(4 linie po 6–10 sylab)\n\n[Pre-Chorus]\n(2 linie)\n\n[Chorus]\n(hook)\n(linia 2)\n(hook)\n(linia 4)\n\n[Verse 2]\n(4 linie)\n\n[Bridge]\n(2–4 linie)\n\n[Chorus]\n\n[Outro]";
+  $("skeleton").addEventListener("click", function () { $("lyrics").value = SKELETON; });
+
+  $("build").addEventListener("click", function () {
+    var bpm = parseInt($("bpm").value, 10);
+    if (!(bpm >= 50 && bpm <= 190)) { setStatus("Wpisz tempo od 50 do 190 BPM.", true); return; }
+    var vocal = $("vocal").value;
+    var parts = [$("genre").value, bpm + " BPM"]
+      .concat(STATE.moods, STATE.insts, [vocal, $("prod").value, $("dyn").value]);
+    var instrumental = vocal === "instrumental";
+    var lyrics = $("lyrics").value.trim();
+    var text = instrumental ? "[Instrumental]" : (lyrics || SKELETON);
+    var excl = STATE.excl.slice();
+    if (instrumental && excl.indexOf("no vocals") < 0) excl.push("no vocals");
+    out.textContent = "";
+    out.appendChild(variant("", { nazwa: "Twój prompt", styl: parts.join(", "), tekst: text, wykluczenia: excl.join(", ") }));
+    if (!instrumental && !lyrics) out.appendChild(note("Uwaga", "Tekst to szkielet. Wpisz własne linie albo użyj trybu „Z AI”, który napisze tekst za Ciebie."));
+    out.appendChild(note("Następny krok", "Wygeneruj utwór i posłuchaj. Jeśli coś nie gra, zmień jedną rzecz naraz: tempo, wokal albo instrumenty."));
+    setStatus("Gotowe. Skopiuj i wklej w Flow Music.");
+    out.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // Zakładki
+  function tab(which) {
+    var ai = which === "ai";
+    $("tab-builder").setAttribute("aria-selected", ai ? "false" : "true");
+    $("tab-ai").setAttribute("aria-selected", ai ? "true" : "false");
+    $("panel-builder").hidden = ai; $("panel-ai").hidden = !ai;
+    setStatus("");
+  }
+  $("tab-builder").addEventListener("click", function () { tab("builder"); });
+  $("tab-ai").addEventListener("click", function () { tab("ai"); });
+
+  // Tryb AI
+  var SYSTEM = [
+    "Jesteś Muzykiem: doświadczonym producentem muzycznym i autorem tekstów, który pracuje z generatorami muzyki AI (np. Flow Music).",
+    "Zamień pomysł użytkownika w gotowy prompt do generatora muzyki.",
+    "Zasady:",
+    "1. STYL pisz po angielsku, w jednej linii, 5–8 elementów oddzielonych przecinkami. Zawsze: gatunek, tempo w BPM, nastrój, 2–4 instrumenty wiodące, typ wokalu, charakter produkcji.",
+    "2. TEKST pisz w wybranym języku, oryginalny, z sekcjami w nawiasach kwadratowych: [Intro] [Verse 1] [Pre-Chorus] [Chorus] [Verse 2] [Bridge] [Chorus] [Outro]. Dla polskiego: linie 6–10 sylab, proste rymy, refren z jednym powtarzalnym hookiem, max 4 linie. Dla instrumentalu wpisz tylko [Instrumental] i krótki opis struktury w nawiasie.",
+    "3. WYKLUCZENIA: lista po przecinku, po angielsku, czego generator ma nie dodawać.",
+    "4. Nie cytuj istniejących piosenek. Nie używaj nazw żyjących artystów ani zespołów. Opisz brzmienie słowami (epoka, wokal, produkcja).",
+    "5. Wariant A jest zgodny z pomysłem. Wariant B to ten sam pomysł ze zmianą jednego elementu (tempo, wokal albo aranż).",
+    "6. Jeśli coś przyjąłeś za użytkownika, opisz to w 'zalozenia' jednym–dwoma zdaniami po polsku. Jeśli nie, zostaw pusty tekst.",
+    "7. 'nastepnyKrok' to jedna konkretna wskazówka po polsku, co zmienić, jeśli wynik będzie słaby.",
+    "Zwróć WYŁĄCZNIE poprawny JSON, bez komentarza i bez bloków kodu, w tym kształcie:",
+    '{"zalozenia":"","wariantA":{"nazwa":"","styl":"","tekst":"","wykluczenia":""},"wariantB":{"nazwa":"","styl":"","tekst":"","wykluczenia":""},"nastepnyKrok":""}'
+  ].join("\n");
+
+  try { var saved = localStorage.getItem("muzyk-key"); if (saved) { $("key").value = saved; $("remember").checked = true; } } catch (e) {}
+
+  function parseJson(t) {
+    t = String(t || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    var a = t.indexOf("{"), b = t.lastIndexOf("}");
+    return JSON.parse(t.slice(a, b + 1));
+  }
+
+  $("go").addEventListener("click", async function () {
+    var idea = $("idea").value.trim(), key = $("key").value.trim();
+    if (!idea) { setStatus("Wpisz najpierw pomysł na utwór.", true); return; }
+    if (!key) { setStatus("Wklej klucz API Anthropic.", true); return; }
+    try { if ($("remember").checked) localStorage.setItem("muzyk-key", key); else localStorage.removeItem("muzyk-key"); } catch (e) {}
+    var btn = $("go"); btn.disabled = true;
+    setStatus("Układam prompt, to potrwa kilkanaście sekund…");
+    var user = "POMYSŁ UŻYTKOWNIKA:\n" + idea + "\n\nJęzyk tekstu: " + $("lang").value + "\nWokal: " + $("avoice").value + "\nDługość: " + $("len").value;
+    try {
+      var res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 2500, system: SYSTEM, messages: [{ role: "user", content: user }] })
+      });
+      if (res.status === 401) throw { code: "auth" };
+      if (res.status === 429) throw { code: "rate" };
+      if (!res.ok) throw { code: "http" };
+      var body = await res.json();
+      var txt = body && body.content && body.content[0] && body.content[0].text;
+      var data = parseJson(txt);
+      if (!data.wariantA || !data.wariantB) throw { code: "shape" };
+      out.textContent = "";
+      if (data.zalozenia) out.appendChild(note("Założenia", data.zalozenia));
+      out.appendChild(variant("A", data.wariantA));
+      out.appendChild(variant("B", data.wariantB));
+      if (data.nastepnyKrok) out.appendChild(note("Następny krok", data.nastepnyKrok));
+      setStatus("Gotowe. Skopiuj wariant A i wklej w Flow Music.");
+      out.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      var c = e && e.code;
+      if (c === "auth") setStatus("Klucz API jest nieprawidłowy. Sprawdź go w console.anthropic.com.", true);
+      else if (c === "rate") setStatus("Za dużo zapytań. Odczekaj chwilę i spróbuj ponownie.", true);
+      else setStatus("Nie udało się ułożyć promptu. Sprawdź połączenie i klucz, potem spróbuj ponownie.", true);
+    } finally { btn.disabled = false; }
+  });
+})();
+</script>
+</body>
+</html>

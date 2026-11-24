@@ -7,6 +7,15 @@ Agent-producent, który zamienia Twój pomysł w gotowy prompt do generatorów m
 Wpisujesz: *"piosenka o poranku po nocnej zmianie, spokojna"*.
 Dostajesz: **STYL + TEKST + WYKLUCZENIA** w dwóch wariantach, gotowe do wklejenia.
 
+## Strona w przeglądarce
+
+Folder `docs/` to gotowa strona (GitHub Pages): https://mega916.github.io/flow-music-agent/
+
+- **Kreator** składa prompt z kliknięć, bez kluczy i bez logowania.
+- **Z AI** pisze styl i tekst. Wymaga własnego klucza API Anthropic, który zostaje w Twojej przeglądarce.
+
+Włączenie: Settings → Pages → Branch `main`, folder `/docs` → Save.
+
 ## Struktura repozytorium
 
 ```
@@ -20,6 +29,8 @@ flow-music-agent/
 │   └── preferencje.md            # Twoje sprawdzone style (agent to czyta)
 ├── templates/
 │   └── brief.md                  # formularz pomysłu na utwór
+├── docs/
+│   └── index.html                # strona (GitHub Pages)
 ├── examples/
 │   └── przyklady.md              # 3 gotowe utwory
 └── .claude/agents/muzyk.md       # link do agenta dla Claude Code
